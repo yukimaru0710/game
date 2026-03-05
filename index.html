@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ステージクリア型RPG</title>
+<style>
+body { font-family: sans-serif; background:#222; color:white; text-align:center; }
+button { padding:10px; margin:5px; border:none; border-radius:8px; cursor:pointer; }
+.screen { display:none; }
+.active { display:block; }
+.card { background:#333; padding:10px; margin:5px; border-radius:10px; }
+</style>
+</head>
+<body>
+
+<h1>ステージクリア型RPG</h1>
+<p>所持石: <span id="gems">0</span></p>
+
+<div id="home" class="screen active">
+<h2>ホーム</h2>
+<button onclick="openStage()">ステージ</button>
+<button onclick="openGacha()">ガチャ</button>
+<button onclick="openMail()">メール</button>
+</div>
+
+<div id="stage" class="screen">
+<h2>ステージ</h2>
+<p>現在ステージ: <span id="stageNum">1</span></p>
+<button onclick="clearStage()">クリアする</button>
+<button onclick="goHome()">戻る</button>
+</div>
+
+<div id="gacha" class="screen">
+<h2>ガチャ</h2>
+<button onclick="drawGacha('character',1)">キャラ単発 (160石)</button>
+<button onclick="drawGacha('character',10)">キャラ10連 (1600石)</button><br>
+<button onclick="drawGacha('weapon',1)">武器単発 (160石)</button>
+<button onclick="drawGacha('weapon',10)">武器10連 (1600石)</button><br>
+<button onclick="goHome()">戻る</button>
+<div id="gachaResult"></div>
+</div>
+
+<div id="mail" class="screen">
+<h2>メール</h2>
+<div id="mailContent"></div>
+<button onclick="goHome()">戻る</button>
+</div>
+
+<script>
+let gems = 0;
+let stage = 1;
+let mailClaimed = false;
+
+const characters = ["勇者","魔法使い","騎士","アサシン","ヒーラー"];
+const weapons = ["剣","弓","杖","槍","短剣"];
+
+function updateUI(){
+ document.getElementById("gems").innerText = gems;
+ document.getElementById("stageNum").innerText = stage;
+}
+
+function showScreen(id){
+ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+}
+
+function goHome(){ showScreen("home"); }
+function openStage(){ showScreen("stage"); }
+function openGacha(){ showScreen("gacha"); }
+function openMail(){ 
+ showScreen("mail");
+ if(!mailClaimed){
+   document.getElementById("mailContent").innerHTML =
+   "<div class='card'>運営からのプレゼント: 石1600個 <button onclick='claimMail()'>受け取る</button></div>";
+ } else {
+   document.getElementById("mailContent").innerHTML = "受け取り済み";
+ }
+}
+
+function claimMail(){
+ gems += 1600;
+ mailClaimed = true;
+ updateUI();
+ openMail();
+}
+
+function clearStage(){
+ const reward = 200;
+ gems += reward;
+ alert("ステージ"+stage+"クリア！ 石"+reward+"個獲得！");
+ stage++;
+ updateUI();
+}
+
+function drawGacha(type,count){
+ const cost = 160 * count;
+ if(gems < cost){ alert("石が足りません"); return; }
+ gems -= cost;
+ let results = [];
+ for(let i=0;i<count;i++){
+   if(type === "character"){
+     results.push(characters[Math.floor(Math.random()*characters.length)]);
+   } else {
+     results.push(weapons[Math.floor(Math.random()*weapons.length)]);
+   }
+ }
+ document.getElementById("gachaResult").innerHTML =
+ "<div class='card'>結果:<br>"+results.join("<br>")+"</div>";
+ updateUI();
+}
+
+updateUI();
+</script>
+
+</body>
+</html>
