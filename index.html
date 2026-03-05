@@ -2,294 +2,368 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>シンプルRPG</title>
+<title>呪われた館 COMPLETE EDITION</title>
 <style>
-body{
-font-family:sans-serif;
-background:#222;
-color:white;
-text-align:center;
-}
+body{margin:0;background:black;color:white;font-family:sans-serif;overflow:hidden}
+#title{position:absolute;inset:0;background:black;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300}
+#title h1{font-size:60px;letter-spacing:6px;margin-bottom:20px}
+button{padding:12px 28px;font-size:18px;cursor:pointer}
 
-button{
-padding:10px;
-margin:5px;
-}
+#game{position:absolute;width:100vw;height:100vh;overflow:hidden}
+#world{position:absolute;width:4200px;height:4200px}
 
-#menu button{
-width:120px;
-}
+#player{position:absolute;width:22px;height:22px;background:white;border-radius:4px;z-index:10}
 
-.box{
-border:1px solid white;
-padding:10px;
-margin:10px;
-}
+.ghost{position:absolute;width:24px;height:24px;background:red;border-radius:50%;z-index:10}
+.wall{position:absolute;background:#1a1a1a}
 
-.hidden{
-display:none;
-}
+.key{position:absolute;width:14px;height:14px;background:gold}
+.battery{position:absolute;width:14px;height:14px;background:lime}
+.note{position:absolute;width:14px;height:14px;background:cyan}
+.artifact{position:absolute;width:16px;height:16px;background:purple}
+
+.door{position:absolute;background:brown}
+
+#exit{position:absolute;width:34px;height:34px;background:green}
+
+#ui{position:absolute;top:10px;left:10px;font-size:14px;background:rgba(0,0,0,.6);padding:10px;border-radius:6px;z-index:50}
+#inventory{margin-top:6px}
+
+#msg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:40px;text-align:center;display:none;z-index:200}
+
+#minimap{position:absolute;right:10px;top:10px;width:170px;height:170px;background:#000;border:2px solid #555;z-index:60}
+
+canvas{position:absolute;left:0;top:0;pointer-events:none}
+
+#fog{position:absolute;inset:0;background:radial-gradient(circle,transparent 150px,rgba(0,0,0,.85));pointer-events:none;z-index:15}
 </style>
 </head>
-
 <body>
 
-<h1>シンプルRPG</h1>
-
-<div id="stone">石:0</div>
-
-<div id="menu">
-<button onclick="openHome()">ホーム</button>
-<button onclick="openMail()">📧メール</button>
-<button onclick="openGacha()">ガチャ</button>
-<button onclick="openStage()">ステージ</button>
-<button onclick="openParty()">編成</button>
+<div id="title">
+<h1>呪われた館</h1>
+<div style="max-width:520px;text-align:left;line-height:1.6;margin-bottom:20px;font-size:16px">
+<b>操作説明</b><br>
+W / A / S / D : 移動<br>
+ゴーストに触れるとゲームオーバー 😱<br>
+鍵 : ドアを開けるために使う<br>
+電池 : 懐中電灯のバッテリー回復 🔋<br>
+メモ : 館のストーリーが読める 📖<br>
+アーティファクト : 3つ集めると真エンディング条件 🧿<br>
+<br>
+<b>クリア方法</b><br>
+1. 館を探索する<br>
+2. アーティファクトを3つ集める<br>
+3. マップの出口へ行く
+</div>
+<button id="start">START GAME</button>
 </div>
 
-<div id="content"></div>
+<div id="game">
+<div id="world">
+<div id="player"></div>
+<div id="exit"></div>
+</div>
+
+<canvas id="light"></canvas>
+<canvas id="minimap"></canvas>
+<div id="fog"></div>
+
+<div id="ui">
+鍵: <span id="k">0</span>/6<br>
+電池: <span id="b">100</span>%<br>
+メモ: <span id="n">0</span>/6<br>
+アーティファクト: <span id="a">0</span>/3
+<div id="inventory"></div>
+</div>
+
+<div id="msg"></div>
+</div>
 
 <script>
+const world=document.getElementById("world")
+const player=document.getElementById("player")
+const exit=document.getElementById("exit")
+const msg=document.getElementById("msg")
 
-let stone = 0
+const keyUI=document.getElementById("k")
+const batUI=document.getElementById("b")
+const noteUI=document.getElementById("n")
+const artUI=document.getElementById("a")
+const invUI=document.getElementById("inventory")
 
-let mail = [
-{title:"運営からのプレゼント",stone:1600,received:false}
-]
+const lightCanvas=document.getElementById("light")
+const lctx=lightCanvas.getContext("2d")
+lightCanvas.width=window.innerWidth
+lightCanvas.height=window.innerHeight
 
-let characters = []
-let weapons = []
-let partyWeapon = null
+const miniCanvas=document.getElementById("minimap")
+const mctx=miniCanvas.getContext("2d")
 
-function updateStone(){
-document.getElementById("stone").innerText="石:"+stone
+let px=200
+let py=200
+
+let battery=100
+let keys=0
+let notes=0
+let artifacts=0
+
+let gameOver=false
+
+const walls=[]
+const ghosts=[]
+const keyItems=[]
+const batteries=[]
+const noteItems=[]
+const artifactItems=[]
+const doors=[]
+
+exit.style.left="4000px"
+exit.style.top="4000px"
+
+function wall(x,y,w,h){
+const e=document.createElement("div")
+e.className="wall"
+e.style.left=x+"px"
+e.style.top=y+"px"
+e.style.width=w+"px"
+e.style.height=h+"px"
+world.appendChild(e)
+walls.push({x,y,w,h})
 }
 
-function setContent(html){
-document.getElementById("content").innerHTML=html
+function door(x,y,w,h){
+const e=document.createElement("div")
+e.className="door"
+e.style.left=x+"px"
+e.style.top=y+"px"
+e.style.width=w+"px"
+e.style.height=h+"px"
+world.appendChild(e)
+doors.push({x,y,w,h,open:false,el:e})
 }
 
-function openHome(){
-setContent("<div class='box'>ホーム画面</div>")
+function dungeon(){
+for(let i=0;i<150;i++){
+wall(Math.random()*4100,Math.random()*4100,120+Math.random()*260,20)
 }
 
-function openMail(){
-
-let html="<h2>メール</h2>"
-
-mail.forEach((m,i)=>{
-
-html+=`
-<div class="box">
-${m.title}<br>
-石 ${m.stone}
-<br>
-${m.received?"受取済":"<button onclick='receiveMail("+i+")'>受け取る</button>"}
-</div>
-`
-})
-
-setContent(html)
-
+door(2000,2000,150,20)
+door(3100,1400,150,20)
+door(1000,3000,150,20)
 }
 
-function receiveMail(i){
+dungeon()
 
-if(mail[i].received) return
+function spawnGhost(x,y){
+const g=document.createElement("div")
+g.className="ghost"
+world.appendChild(g)
 
-stone+=mail[i].stone
-mail[i].received=true
-
-updateStone()
-openMail()
-
+ghosts.push({x,y,el:g,mode:"patrol",tx:Math.random()*4200,ty:Math.random()*4200})
 }
 
-function openGacha(){
+for(let i=0;i<12;i++)spawnGhost(Math.random()*3800+200,Math.random()*3800+200)
 
-let html=`
-<h2>ガチャ</h2>
-
-<button onclick="characterGacha(1)">キャラ単発(160)</button>
-<button onclick="characterGacha(10)">キャラ10連(1600)</button>
-
-<br><br>
-
-<button onclick="weaponGacha(1)">武器単発(160)</button>
-<button onclick="weaponGacha(10)">武器10連(1600)</button>
-`
-
-setContent(html)
-
+function spawnItem(list,cls,x,y){
+const e=document.createElement("div")
+e.className=cls
+ e.style.left=x+"px"
+ e.style.top=y+"px"
+ world.appendChild(e)
+ list.push({x,y,el:e,got:false})
 }
 
-function rand(min,max){
-return Math.floor(Math.random()*(max-min+1))+min
+for(let i=0;i<6;i++)spawnItem(keyItems,"key",Math.random()*3800+200,Math.random()*3800+200)
+for(let i=0;i<8;i++)spawnItem(batteries,"battery",Math.random()*3800+200,Math.random()*3800+200)
+for(let i=0;i<6;i++)spawnItem(noteItems,"note",Math.random()*3800+200,Math.random()*3800+200)
+for(let i=0;i<3;i++)spawnItem(artifactItems,"artifact",Math.random()*3800+200,Math.random()*3800+200)
+
+const input={}
+document.addEventListener("keydown",e=>input[e.key.toLowerCase()]=true)
+document.addEventListener("keyup",e=>input[e.key.toLowerCase()]=false)
+
+function collide(x,y){
+for(const w of walls){
+if(x<w.x+w.w&&x+22>w.x&&y<w.y+w.h&&y+22>w.y)return true
 }
 
-function characterGacha(n){
-
-let cost = n*160
-
-if(stone<cost){
-alert("石が足りません")
-return
+for(const d of doors){
+if(!d.open){
+if(x<d.x+d.w&&x+22>d.x&&y<d.y+d.h&&y+22>d.y)return true
+}
 }
 
-stone-=cost
-updateStone()
-
-for(let i=0;i<n;i++){
-
-let name="キャラ"+rand(1,100)
-
-characters.push({
-name:name,
-hp:100,
-atk:20
-})
-
+return false
 }
 
-alert(n+"体のキャラを入手")
-
+function camera(){
+const cx=window.innerWidth/2-px
+const cy=window.innerHeight/2-py
+world.style.left=cx+"px"
+world.style.top=cy+"px"
 }
 
-function weaponGacha(n){
+function flashlight(){
+lctx.clearRect(0,0,lightCanvas.width,lightCanvas.height)
+lctx.fillStyle="rgba(0,0,0,0.96)"
+lctx.fillRect(0,0,lightCanvas.width,lightCanvas.height)
 
-let cost = n*160
-
-if(stone<cost){
-alert("石が足りません")
-return
+lctx.globalCompositeOperation="destination-out"
+lctx.beginPath()
+lctx.arc(px+11-world.offsetLeft,py+11-world.offsetTop,120+(battery*0.8),0,Math.PI*2)
+lctx.fill()
+lctx.globalCompositeOperation="source-over"
 }
 
-stone-=cost
-updateStone()
+function minimap(){
+mctx.fillStyle="black"
+mctx.fillRect(0,0,170,170)
 
-for(let i=0;i<n;i++){
+mctx.fillStyle="white"
+mctx.fillRect(px/25,py/25,3,3)
 
-let r = rand(1,7)
-
-let atk = r*10
-
-weapons.push({
-name:"武器R"+r,
-rarity:r,
-atk:atk
-})
-
+mctx.fillStyle="red"
+for(const g of ghosts){
+mctx.fillRect(g.x/25,g.y/25,3,3)
+}
 }
 
-alert(n+"個の武器を入手")
-
+function inventory(){
+invUI.textContent="鍵:"+keys+" | アーティファクト:"+artifacts
 }
 
-function openParty(){
-
-let html="<h2>武器装備</h2>"
-
-weapons.forEach((w,i)=>{
-
-html+=`
-<div class="box">
-${w.name}
-攻撃:${w.atk}
-<button onclick="equip(${i})">装備</button>
-</div>
-`
-
-})
-
-if(partyWeapon){
-html+="<br>現在装備:"+partyWeapon.name
+function scare(){
+msg.style.display="block"
+msg.innerHTML="😱 ゴーストに捕まった"
 }
 
-setContent(html)
-
+function ending(){
+msg.style.display="block"
+msg.innerHTML="🏆 完全脱出 END"
 }
 
-function equip(i){
+function update(){
+if(gameOver)return
 
-partyWeapon = weapons[i]
+let nx=px
+let ny=py
 
-openParty()
+if(input.w)ny-=3
+if(input.s)ny+=3
+if(input.a)nx-=3
+if(input.d)nx+=3
 
+if(!collide(nx,ny)){
+px=nx
+py=ny
 }
 
-function openStage(){
+player.style.left=px+"px"
+player.style.top=py+"px"
 
-let html=`
-<h2>ステージ1</h2>
+battery-=0.01
+if(battery<0)battery=0
+batUI.textContent=Math.floor(battery)
 
-<button onclick="startBattle()">開始</button>
-`
-
-setContent(html)
-
+for(const k of keyItems){
+if(!k.got && Math.hypot(px-k.x,py-k.y)<20){
+k.got=true
+k.el.remove()
+keys++
+keyUI.textContent=keys
+inventory()
+}
 }
 
-function startBattle(){
-
-let playerHp=100
-let enemyHp=80
-
-let atk = 20
-
-if(partyWeapon){
-atk += partyWeapon.atk
+for(const a of artifactItems){
+if(!a.got && Math.hypot(px-a.x,py-a.y)<20){
+a.got=true
+a.el.remove()
+artifacts++
+artUI.textContent=artifacts
+inventory()
+}
 }
 
-function render(){
-
-setContent(`
-<h2>バトル</h2>
-
-プレイヤーHP:${playerHp}
-<br>
-敵HP:${enemyHp}
-<br><br>
-
-<button onclick="attack()">攻撃</button>
-`)
+for(const b of batteries){
+if(!b.got && Math.hypot(px-b.x,py-b.y)<20){
+b.got=true
+b.el.remove()
+battery=Math.min(100,battery+40)
+}
 }
 
-window.attack=function(){
-
-enemyHp -= atk
-
-if(enemyHp<=0){
-
-stone+=100
-updateStone()
-
-alert("勝利 石100獲得")
-
-openHome()
-return
+for(const n of noteItems){
+if(!n.got && Math.hypot(px-n.x,py-n.y)<20){
+n.got=true
+n.el.remove()
+notes++
+noteUI.textContent=notes
+msg.style.display="block"
+msg.innerHTML="メモ: この館は危険だ"
+setTimeout(()=>msg.style.display="none",2000)
+}
 }
 
-playerHp -= 15
-
-if(playerHp<=0){
-
-alert("敗北")
-
-openHome()
-return
+for(const d of doors){
+if(!d.open && Math.hypot(px-d.x,py-d.y)<40 && keys>0){
+keys--
+keyUI.textContent=keys
+ d.open=true
+ d.el.remove()
+}
 }
 
-render()
+for(const g of ghosts){
+let dx=px-g.x
+let dy=py-g.y
+let dist=Math.hypot(dx,dy)
 
+if(dist<450)g.mode="chase"
+
+if(g.mode==="chase"){
+ g.x+=dx/dist*2
+ g.y+=dy/dist*2
+}else{
+ let pdx=g.tx-g.x
+ let pdy=g.ty-g.y
+ let pd=Math.hypot(pdx,pdy)
+ if(pd<10){
+  g.tx=Math.random()*4200
+  g.ty=Math.random()*4200
+ }
+ g.x+=pdx/pd*0.8
+ g.y+=pdy/pd*0.8
 }
 
-render()
+g.el.style.left=g.x+"px"
+g.el.style.top=g.y+"px"
 
+if(Math.hypot(px-g.x,py-g.y)<20){
+scare()
+ gameOver=true
+}
 }
 
-updateStone()
-openHome()
+if(Math.hypot(px-4000,py-4000)<50 && artifacts>=3){
+ending()
+ gameOver=true
+}
 
+camera()
+flashlight()
+minimap()
+
+requestAnimationFrame(update)
+}
+
+update()
+
+document.getElementById("start").onclick=()=>{
+document.getElementById("title").style.display="none"
+}
 </script>
-
 </body>
 </html>
+
