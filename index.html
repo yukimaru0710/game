@@ -2,114 +2,293 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ステージクリア型RPG</title>
+<title>シンプルRPG</title>
 <style>
-body { font-family: sans-serif; background:#222; color:white; text-align:center; }
-button { padding:10px; margin:5px; border:none; border-radius:8px; cursor:pointer; }
-.screen { display:none; }
-.active { display:block; }
-.card { background:#333; padding:10px; margin:5px; border-radius:10px; }
+body{
+font-family:sans-serif;
+background:#222;
+color:white;
+text-align:center;
+}
+
+button{
+padding:10px;
+margin:5px;
+}
+
+#menu button{
+width:120px;
+}
+
+.box{
+border:1px solid white;
+padding:10px;
+margin:10px;
+}
+
+.hidden{
+display:none;
+}
 </style>
 </head>
+
 <body>
 
-<h1>ステージクリア型RPG</h1>
-<p>所持石: <span id="gems">0</span></p>
+<h1>シンプルRPG</h1>
 
-<div id="home" class="screen active">
-<h2>ホーム</h2>
-<button onclick="openStage()">ステージ</button>
+<div id="stone">石:0</div>
+
+<div id="menu">
+<button onclick="openHome()">ホーム</button>
+<button onclick="openMail()">📧メール</button>
 <button onclick="openGacha()">ガチャ</button>
-<button onclick="openMail()">メール</button>
+<button onclick="openStage()">ステージ</button>
+<button onclick="openParty()">編成</button>
 </div>
 
-<div id="stage" class="screen">
-<h2>ステージ</h2>
-<p>現在ステージ: <span id="stageNum">1</span></p>
-<button onclick="clearStage()">クリアする</button>
-<button onclick="goHome()">戻る</button>
-</div>
-
-<div id="gacha" class="screen">
-<h2>ガチャ</h2>
-<button onclick="drawGacha('character',1)">キャラ単発 (160石)</button>
-<button onclick="drawGacha('character',10)">キャラ10連 (1600石)</button><br>
-<button onclick="drawGacha('weapon',1)">武器単発 (160石)</button>
-<button onclick="drawGacha('weapon',10)">武器10連 (1600石)</button><br>
-<button onclick="goHome()">戻る</button>
-<div id="gachaResult"></div>
-</div>
-
-<div id="mail" class="screen">
-<h2>メール</h2>
-<div id="mailContent"></div>
-<button onclick="goHome()">戻る</button>
-</div>
+<div id="content"></div>
 
 <script>
-let gems = 0;
-let stage = 1;
-let mailClaimed = false;
 
-const characters = ["勇者","魔法使い","騎士","アサシン","ヒーラー"];
-const weapons = ["剣","弓","杖","槍","短剣"];
+let stone = 0
 
-function updateUI(){
- document.getElementById("gems").innerText = gems;
- document.getElementById("stageNum").innerText = stage;
+let mail = [
+{title:"運営からのプレゼント",stone:1600,received:false}
+]
+
+let characters = []
+let weapons = []
+let partyWeapon = null
+
+function updateStone(){
+document.getElementById("stone").innerText="石:"+stone
 }
 
-function showScreen(id){
- document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
- document.getElementById(id).classList.add("active");
+function setContent(html){
+document.getElementById("content").innerHTML=html
 }
 
-function goHome(){ showScreen("home"); }
-function openStage(){ showScreen("stage"); }
-function openGacha(){ showScreen("gacha"); }
-function openMail(){ 
- showScreen("mail");
- if(!mailClaimed){
-   document.getElementById("mailContent").innerHTML =
-   "<div class='card'>運営からのプレゼント: 石1600個 <button onclick='claimMail()'>受け取る</button></div>";
- } else {
-   document.getElementById("mailContent").innerHTML = "受け取り済み";
- }
+function openHome(){
+setContent("<div class='box'>ホーム画面</div>")
 }
 
-function claimMail(){
- gems += 1600;
- mailClaimed = true;
- updateUI();
- openMail();
+function openMail(){
+
+let html="<h2>メール</h2>"
+
+mail.forEach((m,i)=>{
+
+html+=`
+<div class="box">
+${m.title}<br>
+石 ${m.stone}
+<br>
+${m.received?"受取済":"<button onclick='receiveMail("+i+")'>受け取る</button>"}
+</div>
+`
+})
+
+setContent(html)
+
 }
 
-function clearStage(){
- const reward = 200;
- gems += reward;
- alert("ステージ"+stage+"クリア！ 石"+reward+"個獲得！");
- stage++;
- updateUI();
+function receiveMail(i){
+
+if(mail[i].received) return
+
+stone+=mail[i].stone
+mail[i].received=true
+
+updateStone()
+openMail()
+
 }
 
-function drawGacha(type,count){
- const cost = 160 * count;
- if(gems < cost){ alert("石が足りません"); return; }
- gems -= cost;
- let results = [];
- for(let i=0;i<count;i++){
-   if(type === "character"){
-     results.push(characters[Math.floor(Math.random()*characters.length)]);
-   } else {
-     results.push(weapons[Math.floor(Math.random()*weapons.length)]);
-   }
- }
- document.getElementById("gachaResult").innerHTML =
- "<div class='card'>結果:<br>"+results.join("<br>")+"</div>";
- updateUI();
+function openGacha(){
+
+let html=`
+<h2>ガチャ</h2>
+
+<button onclick="characterGacha(1)">キャラ単発(160)</button>
+<button onclick="characterGacha(10)">キャラ10連(1600)</button>
+
+<br><br>
+
+<button onclick="weaponGacha(1)">武器単発(160)</button>
+<button onclick="weaponGacha(10)">武器10連(1600)</button>
+`
+
+setContent(html)
+
 }
 
-updateUI();
+function rand(min,max){
+return Math.floor(Math.random()*(max-min+1))+min
+}
+
+function characterGacha(n){
+
+let cost = n*160
+
+if(stone<cost){
+alert("石が足りません")
+return
+}
+
+stone-=cost
+updateStone()
+
+for(let i=0;i<n;i++){
+
+let name="キャラ"+rand(1,100)
+
+characters.push({
+name:name,
+hp:100,
+atk:20
+})
+
+}
+
+alert(n+"体のキャラを入手")
+
+}
+
+function weaponGacha(n){
+
+let cost = n*160
+
+if(stone<cost){
+alert("石が足りません")
+return
+}
+
+stone-=cost
+updateStone()
+
+for(let i=0;i<n;i++){
+
+let r = rand(1,7)
+
+let atk = r*10
+
+weapons.push({
+name:"武器R"+r,
+rarity:r,
+atk:atk
+})
+
+}
+
+alert(n+"個の武器を入手")
+
+}
+
+function openParty(){
+
+let html="<h2>武器装備</h2>"
+
+weapons.forEach((w,i)=>{
+
+html+=`
+<div class="box">
+${w.name}
+攻撃:${w.atk}
+<button onclick="equip(${i})">装備</button>
+</div>
+`
+
+})
+
+if(partyWeapon){
+html+="<br>現在装備:"+partyWeapon.name
+}
+
+setContent(html)
+
+}
+
+function equip(i){
+
+partyWeapon = weapons[i]
+
+openParty()
+
+}
+
+function openStage(){
+
+let html=`
+<h2>ステージ1</h2>
+
+<button onclick="startBattle()">開始</button>
+`
+
+setContent(html)
+
+}
+
+function startBattle(){
+
+let playerHp=100
+let enemyHp=80
+
+let atk = 20
+
+if(partyWeapon){
+atk += partyWeapon.atk
+}
+
+function render(){
+
+setContent(`
+<h2>バトル</h2>
+
+プレイヤーHP:${playerHp}
+<br>
+敵HP:${enemyHp}
+<br><br>
+
+<button onclick="attack()">攻撃</button>
+`)
+}
+
+window.attack=function(){
+
+enemyHp -= atk
+
+if(enemyHp<=0){
+
+stone+=100
+updateStone()
+
+alert("勝利 石100獲得")
+
+openHome()
+return
+}
+
+playerHp -= 15
+
+if(playerHp<=0){
+
+alert("敗北")
+
+openHome()
+return
+}
+
+render()
+
+}
+
+render()
+
+}
+
+updateStone()
+openHome()
+
 </script>
 
 </body>
