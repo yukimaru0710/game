@@ -1,0 +1,156 @@
+```html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>シンプル音ゲー</title>
+<style>
+body{
+    background:#111;
+    color:white;
+    text-align:center;
+    font-family:sans-serif;
+}
+
+h1{
+    margin-top:10px;
+}
+
+#game{
+    width:400px;
+    height:600px;
+    margin:20px auto;
+    position:relative;
+    background:#000;
+    border:4px solid white;
+    overflow:hidden;
+}
+
+.lane{
+    width:25%;
+    height:100%;
+    position:absolute;
+    border-left:1px solid #444;
+}
+
+.lane:nth-child(1){left:0;}
+.lane:nth-child(2){left:25%;}
+.lane:nth-child(3){left:50%;}
+.lane:nth-child(4){left:75%;}
+
+.note{
+    width:25%;
+    height:20px;
+    position:absolute;
+    background:#0ff;
+    border-radius:4px;
+}
+
+#hitline{
+    position:absolute;
+    bottom:80px;
+    width:100%;
+    height:5px;
+    background:red;
+}
+
+#score{
+    font-size:20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎵 シンプル音ゲー</h1>
+<p>D F J Kキーで叩く</p>
+<div id="score">Score: 0</div>
+
+<div id="game">
+<div class="lane"></div>
+<div class="lane"></div>
+<div class="lane"></div>
+<div class="lane"></div>
+<div id="hitline"></div>
+</div>
+
+<script>
+
+const game=document.getElementById("game");
+const scoreText=document.getElementById("score");
+
+let notes=[];
+let score=0;
+
+function spawnNote(){
+    const lane=Math.floor(Math.random()*4);
+
+    const note=document.createElement("div");
+    note.className="note";
+    note.style.left=(lane*25)+"%";
+    note.style.top="0px";
+
+    game.appendChild(note);
+
+    notes.push({
+        el:note,
+        lane:lane,
+        y:0
+    });
+}
+
+setInterval(spawnNote,800);
+
+function update(){
+
+    notes.forEach((note,i)=>{
+        note.y+=4;
+        note.el.style.top=note.y+"px";
+
+        if(note.y>600){
+            note.el.remove();
+            notes.splice(i,1);
+        }
+    });
+
+    requestAnimationFrame(update);
+}
+
+update();
+
+const keyMap={
+"d":0,
+"f":1,
+"j":2,
+"k":3
+};
+
+document.addEventListener("keydown",(e)=>{
+
+    const lane=keyMap[e.key];
+    if(lane===undefined) return;
+
+    notes.forEach((note,i)=>{
+
+        if(note.lane===lane){
+
+            if(note.y>480 && note.y<560){
+
+                score+=100;
+                scoreText.textContent="Score: "+score;
+
+                note.el.remove();
+                notes.splice(i,1);
+            }
+
+        }
+
+    });
+
+});
+
+</script>
+
+</body>
+</html>
+```
