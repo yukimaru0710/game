@@ -183,6 +183,14 @@ const input={}
 document.addEventListener("keydown",e=>input[e.key.toLowerCase()]=true)
 document.addEventListener("keyup",e=>input[e.key.toLowerCase()]=false)
 
+let mouseX=0
+let mouseY=0
+
+document.addEventListener("mousemove",e=>{
+ mouseX=e.clientX
+ mouseY=e.clientY
+})
+
 function collide(x,y){
 for(const w of walls){
 if(x<w.x+w.w&&x+22>w.x&&y<w.y+w.h&&y+22>w.y)return true
@@ -205,15 +213,29 @@ world.style.top=cy+"px"
 }
 
 function flashlight(){
-lctx.clearRect(0,0,lightCanvas.width,lightCanvas.height)
-lctx.fillStyle="rgba(0,0,0,0.96)"
-lctx.fillRect(0,0,lightCanvas.width,lightCanvas.height)
+ lctx.clearRect(0,0,lightCanvas.width,lightCanvas.height)
+ lctx.fillStyle="rgba(0,0,0,0.96)"
+ lctx.fillRect(0,0,lightCanvas.width,lightCanvas.height)
 
-lctx.globalCompositeOperation="destination-out"
-lctx.beginPath()
-lctx.arc(px+11-world.offsetLeft,py+11-world.offsetTop,120+(battery*0.8),0,Math.PI*2)
-lctx.fill()
-lctx.globalCompositeOperation="source-over"
+ const playerScreenX = px + world.offsetLeft + 11
+ const playerScreenY = py + world.offsetTop + 11
+
+ const dx = mouseX - playerScreenX
+ const dy = mouseY - playerScreenY
+ const angle = Math.atan2(dy,dx)
+
+ const coneAngle = Math.PI/4
+ const radius = 220 + battery*0.6
+
+ lctx.globalCompositeOperation="destination-out"
+
+ lctx.beginPath()
+ lctx.moveTo(playerScreenX,playerScreenY)
+ lctx.arc(playerScreenX,playerScreenY,radius,angle-coneAngle,angle+coneAngle)
+ lctx.closePath()
+ lctx.fill()
+
+ lctx.globalCompositeOperation="source-over"
 }
 
 function minimap(){
